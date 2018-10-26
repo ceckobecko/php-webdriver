@@ -136,6 +136,7 @@ class HttpCommandExecutor implements WebDriverCommandExecutor
         DriverCommand::TOUCH_MOVE => ['method' => 'POST', 'url' => '/session/:sessionId/touch/move'],
         DriverCommand::TOUCH_SCROLL => ['method' => 'POST', 'url' => '/session/:sessionId/touch/scroll'],
         DriverCommand::TOUCH_UP => ['method' => 'POST', 'url' => '/session/:sessionId/touch/up'],
+        DriverCommand::CUSTOM_COMMAND => false,
     ];
     /**
      * @var string
@@ -226,13 +227,9 @@ class HttpCommandExecutor implements WebDriverCommandExecutor
      */
     public function execute(WebDriverCommand $command)
     {
-        if (!isset(self::$commands[$command->getName()])) {
-            throw new InvalidArgumentException($command->getName() . ' is not a valid command.');
-        }
-
-        $raw = self::$commands[$command->getName()];
-        $http_method = $raw['method'];
-        $url = $raw['url'];
+        $http_options = $this->getCommandHttpOptions($command);
+        $http_method = $http_options['method'];
+        $url = $http_options['url'];
         $url = str_replace(':sessionId', $command->getSessionID(), $url);
         $params = $command->getParameters();
         foreach ($params as $name => $value) {
@@ -339,5 +336,31 @@ class HttpCommandExecutor implements WebDriverCommandExecutor
     public function getAddressOfRemoteServer()
     {
         return $this->url;
+    }
+
+    /**
+     * @param WebDriverCommand $command
+     * @throws WebDriverException
+     * @return array
+     */
+    protected function getCommandHttpOptions(WebDriverCommand $command)
+    {
+        if (!isset(self::$commands[$command->getName()])) {
+            throw new InvalidArgumentException($command->getName() . ' is not a valid command.');
+        }
+
+        $raw = self::$commands[$command->getName()];
+        if ($raw === false) {
+            $url = $command->getCustomUrl();
+            $method = $command->getCustomMethod();
+        } else {
+            $url = $raw['url'];
+            $method = $raw['method'];
+        }
+
+        return [
+            'url' => $url,
+            'method' => $method,
+        ];
     }
 }
